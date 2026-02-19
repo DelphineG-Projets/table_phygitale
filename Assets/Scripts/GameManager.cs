@@ -80,46 +80,116 @@ public class GameManager : MonoBehaviour
 
     void PlacePlayerBases()
     {
-        Vector2Int center = new Vector2Int(gridManager.gridWidth / 2, gridManager.gridHeight / 2);
+        GridShape shape = gridManager.GetGridShape();
 
-        // Positions des bases en sens horaire autour du cercle
-        // Angles: 225° (bas-gauche), 315° (bas-droite), 45° (haut-droite), 135° (haut-gauche)
+        if (shape == GridShape.Square)
+        {
+            PlaceBasesSquare();
+        }
+        else
+        {
+            PlaceBasesCircle();
+        }
+    }
+
+    void PlaceBasesSquare()
+    {
+        int w = gridManager.gridWidth;
+        int h = gridManager.gridHeight;
+        int margin = 1; // Distance du bord
+
+        // Coins : bas-gauche, bas-droite, haut-droite, haut-gauche
+        Vector2Int[] cornerPositions = new Vector2Int[]
+        {
+            new Vector2Int(margin, margin),
+            new Vector2Int(w - 1 - margin, margin),
+            new Vector2Int(w - 1 - margin, h - 1 - margin),
+            new Vector2Int(margin, h - 1 - margin)
+        };
+
+        for (int i = 0; i < numberOfPlayers && i < cornerPositions.Length; i++)
+        {
+            PlaceBaseAtPosition(cornerPositions[i], i);
+        }
+    }
+
+    void PlaceBasesCircle()
+    {
+        // Angles diagonaux : bas-gauche, bas-droite, haut-droite, haut-gauche
         float[] angles = new float[] { 225f, 315f, 45f, 135f };
-        float baseDistance = 7f; // Distance du centre (ajuste selon ton rayon)
 
         for (int i = 0; i < numberOfPlayers && i < angles.Length; i++)
         {
-            float angleRad = angles[i] * Mathf.Deg2Rad;
+            Vector2Int bestPos = FindBestBasePositionOnCircle(angles[i]);
 
-            int x = Mathf.RoundToInt(center.x + Mathf.Cos(angleRad) * baseDistance);
-            int y = Mathf.RoundToInt(center.y + Mathf.Sin(angleRad) * baseDistance);
-
-            // S'assurer que la position est dans les limites
-            x = Mathf.Clamp(x, 0, gridManager.gridWidth - 1);
-            y = Mathf.Clamp(y, 0, gridManager.gridHeight - 1);
-
-            Vector2Int pos = new Vector2Int(x, y);
-            GameObject tile = gridManager.GetTileByCoordinates(pos.x, pos.y);
-
-            if (tile != null)
+            if (bestPos.x >= 0)
             {
-                TileData tileData = tile.GetComponent<TileData>();
-                playerBases.Add(tileData.tileNumber, players[i]);
-
-                Renderer renderer = tile.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    Material mat = baseMaterial != null ? new Material(baseMaterial) : new Material(renderer.sharedMaterial);
-                    mat.color = playerBaseColors[i];
-                    renderer.material = mat;
-                }
-
-                Debug.Log($"Base du Joueur {players[i].playerNumber} placée en ({pos.x}, {pos.y})");
+                PlaceBaseAtPosition(bestPos, i);
             }
             else
             {
-                Debug.LogWarning($"Impossible de placer la base du joueur {i + 1} à ({x}, {y})");
+                Debug.LogWarning($"Impossible de trouver une position pour la base du joueur {i + 1}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Cherche la tile existante la plus éloignée du centre dans la direction donnée (angle en degrés).
+    /// Part du bord et se rapproche du centre jusqu'à trouver une tile valide.
+    /// </summary>
+    Vector2Int FindBestBasePositionOnCircle(float angleDeg)
+    {
+        float angleRad = angleDeg * Mathf.Deg2Rad;
+        float dirX = Mathf.Cos(angleRad);
+        float dirY = Mathf.Sin(angleRad);
+
+        // Utiliser le vrai centre de la grille
+        Vector2 center = gridManager.GridCenter;
+
+        // Partir de loin et se rapprocher jusqu'à trouver un tile existant
+        float maxDist = Mathf.Max(gridManager.gridWidth, gridManager.gridHeight);
+
+        for (float dist = maxDist; dist >= 2f; dist -= 0.5f)
+        {
+            int x = Mathf.RoundToInt(center.x + dirX * dist);
+            int y = Mathf.RoundToInt(center.y + dirY * dist);
+
+            if (gridManager.HasTileAt(x, y))
+            {
+                // Vérifier que c'est pas trop près du centre (au moins 3 tiles de distance)
+                float actualDist = Vector2.Distance(new Vector2(x, y), center);
+                if (actualDist >= 3f)
+                {
+                    return new Vector2Int(x, y);
+                }
+            }
+        }
+
+        return new Vector2Int(-1, -1); // Pas trouvé
+    }
+
+    void PlaceBaseAtPosition(Vector2Int pos, int playerIndex)
+    {
+        GameObject tile = gridManager.GetTileByCoordinates(pos.x, pos.y);
+
+        if (tile != null)
+        {
+            TileData tileData = tile.GetComponent<TileData>();
+            playerBases.Add(tileData.tileNumber, players[playerIndex]);
+
+            Renderer renderer = tile.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Material mat = baseMaterial != null ? new Material(baseMaterial) : new Material(renderer.sharedMaterial);
+                mat.color = playerBaseColors[playerIndex];
+                renderer.material = mat;
+            }
+
+            Debug.Log($"Base du Joueur {players[playerIndex].playerNumber} placée en ({pos.x}, {pos.y})");
+        }
+        else
+        {
+            Debug.LogWarning($"Impossible de placer la base du joueur {playerIndex + 1} à ({pos.x}, {pos.y})");
         }
     }
 
@@ -138,19 +208,25 @@ public class GameManager : MonoBehaviour
 
     void PlaceInitialLavaPieces()
     {
-        int centerX = gridManager.gridWidth / 2;
-        int centerY = gridManager.gridHeight / 2;
+        // Utiliser le vrai centre de la grille
+        Vector2 center = gridManager.GridCenter;
+        int centerX = Mathf.FloorToInt(center.x);
+        int centerY = Mathf.FloorToInt(center.y);
 
         Vector2Int[] centerPositions = new Vector2Int[]
         {
-        new Vector2Int(centerX - 1, centerY - 1),
-        new Vector2Int(centerX, centerY - 1),
-        new Vector2Int(centerX - 1, centerY),
-        new Vector2Int(centerX, centerY)
+            new Vector2Int(centerX, centerY),
+            new Vector2Int(centerX + 1, centerY),
+            new Vector2Int(centerX, centerY + 1),
+            new Vector2Int(centerX + 1, centerY + 1)
         };
 
         foreach (Vector2Int pos in centerPositions)
         {
+            // Vérifier que le tile existe (important pour le cercle)
+            if (!gridManager.HasTileAt(pos.x, pos.y))
+                continue;
+
             GameObject tile = gridManager.GetTileByCoordinates(pos.x, pos.y);
             if (tile != null)
             {
@@ -162,12 +238,12 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        Debug.Log($"4 lava_pieces initiales placées au centre de la grille (protégées)");
+        Debug.Log($"Lava_pieces initiales placées au centre ({centerX},{centerY})");
     }
 
-    void PlaceLavaPiece(int tileNumber, Vector3 position)
+    void PlaceLavaPiece(int tileNumber, Vector3 tileWorldPosition)
     {
-        GameObject lavaPiece = Instantiate(lavaPiecePrefab, position + Vector3.up * 0.1f, Quaternion.identity, transform);
+        GameObject lavaPiece = Instantiate(lavaPiecePrefab, tileWorldPosition + Vector3.up * 0.1f, Quaternion.identity, transform);
         lavaPiece.name = $"lava_piece_{tileNumber}";
 
         if (lavaMaterial != null)
@@ -224,11 +300,42 @@ public class GameManager : MonoBehaviour
         Debug.Log($"🚧 Bloque placé sur tile {tileNumber}");
     }
 
+    /// <summary>
+    /// Supprime toutes les pièces (lava, block, etc.) et reset les dictionnaires.
+    /// Appelé par GridManager.ClearGrid() et par ResetGame().
+    /// </summary>
+    public void ClearAllPieces()
+    {
+        // Détruire tous les enfants du GameManager (lava_pieces, block_pieces, PlayerHands, etc.)
+        int childCount = transform.childCount;
+        for (int i = childCount - 1; i >= 0; i--)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+                DestroyImmediate(transform.GetChild(i).gameObject);
+            else
+                Destroy(transform.GetChild(i).gameObject);
+#else
+            Destroy(transform.GetChild(i).gameObject);
+#endif
+        }
+
+        // Reset tous les dictionnaires et sets
+        occupiedTiles.Clear();
+        lavaTiles.Clear();
+        blockTiles.Clear();
+        initialLavaTiles.Clear();
+        playerBases.Clear();
+        eliminatedPlayers.Clear();
+        players.Clear();
+        playerHands.Clear();
+
+        Debug.Log($"🧹 Toutes les pièces du GameManager nettoyées ({childCount} objets supprimés)");
+    }
+
     public void PlaceInitialLavaPiecesInEditor()
     {
-#if UNITY_EDITOR
         PlaceInitialLavaPieces();
-#endif
     }
 
     void StartGame()
@@ -238,7 +345,6 @@ public class GameManager : MonoBehaviour
         Debug.Log($"=== DÉBUT DE LA PARTIE ===");
         Debug.Log($"Au tour du Joueur {GetCurrentPlayer().playerNumber}");
 
-        // AJOUTER CETTE LIGNE
         HighlightCurrentPlayerBase();
     }
 
@@ -444,25 +550,21 @@ public class GameManager : MonoBehaviour
         {
             GameObject tile = gridManager.GetTileByNumber(tileNumber);
 
-            // Vérifier si la tile existe
             if (tile == null)
                 continue;
 
-            // Si c'est un bloque, on le saute
-            if (IsTileBlock(tileNumber))  // CHANGÉ ICI - pas gameManager.
+            if (IsTileBlock(tileNumber))
             {
                 Debug.Log($"⚠️ Tile {tileNumber} est un bloque, on le saute");
                 continue;
             }
 
-            // Si la tile est occupée par autre chose (lave existante), on le saute aussi
             if (occupiedTiles.ContainsKey(tileNumber))
             {
                 Debug.Log($"⚠️ Tile {tileNumber} est déjà occupé, on le saute");
                 continue;
             }
 
-            // Placer la lave
             PlaceLavaPiece(tileNumber, tile.transform.position);
             CheckBaseElimination(tileNumber);
             lavasPlaced++;
@@ -470,7 +572,6 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"🔥 {lavasPlaced} lave(s) placée(s) (certaines cases peuvent avoir été sautées)");
 
-        // Retourner true si au moins une lave a été placée
         return lavasPlaced > 0;
     }
 
@@ -490,7 +591,6 @@ public class GameManager : MonoBehaviour
                 continue;
             }
 
-            // VÉRIFIER SI C'EST UNE LAVE INITIALE PROTÉGÉE
             if (initialLavaTiles.Contains(tileNumber))
             {
                 Debug.LogWarning($"🛡️ Tile {tileNumber} est une lave initiale protégée, l'eau ne peut pas l'enlever!");
@@ -611,7 +711,6 @@ public class GameManager : MonoBehaviour
 
     void HighlightCurrentPlayerBase()
     {
-        // Réinitialiser toutes les bases à leur couleur normale
         foreach (var baseEntry in playerBases)
         {
             int tileNumber = baseEntry.Key;
@@ -625,24 +724,19 @@ public class GameManager : MonoBehaviour
                 {
                     Material mat = new Material(renderer.sharedMaterial);
 
-                    // Trouver l'index du joueur
                     int playerIndex = player.playerNumber - 1;
 
-                    // Couleur normale ou brillante selon si c'est le joueur actuel
                     if (player.playerNumber == GetCurrentPlayer().playerNumber)
                     {
-                        // Rendre plus clair/brillant pour le joueur actuel
                         Color brightColor = playerBaseColors[playerIndex];
-                        brightColor = Color.Lerp(brightColor, Color.white, 0.5f); // 50% plus clair
+                        brightColor = Color.Lerp(brightColor, Color.white, 0.5f);
                         mat.color = brightColor;
 
-                        // Optionnel: ajouter de l'émission pour un effet brillant
                         mat.EnableKeyword("_EMISSION");
                         mat.SetColor("_EmissionColor", playerBaseColors[playerIndex] * 0.5f);
                     }
                     else
                     {
-                        // Couleur normale pour les autres joueurs
                         mat.color = playerBaseColors[playerIndex];
                         mat.DisableKeyword("_EMISSION");
                     }
@@ -723,7 +817,6 @@ public class GameManager : MonoBehaviour
         Debug.Log($"--- Au tour du Joueur {GetCurrentPlayer().playerNumber} ---");
         Debug.Log($"🌬️ Direction du vent: {currentWindDirection}");
 
-        // AJOUTER CETTE LIGNE
         HighlightCurrentPlayerBase();
     }
 
@@ -746,41 +839,19 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("🔄 RESET COMPLET DU JEU");
 
+        // Utiliser ClearAllPieces au lieu de dupliquer la logique
+        ClearAllPieces();
+
+        // Reset des états de jeu
         hasPlacedMandatoryLava = false;
         hasPlayedCard = false;
         isGameOver = false;
 
-        foreach (var kvp in occupiedTiles)
-        {
-            if (kvp.Value != null)
-                Destroy(kvp.Value);
-        }
+        // Restaurer les couleurs des tiles via le GridManager
+        gridManager.RestoreTileColors();
 
-        occupiedTiles.Clear();
-        lavaTiles.Clear();
-        blockTiles.Clear();
-        initialLavaTiles.Clear(); // AJOUTER CETTE LIGNE
-        playerBases.Clear();
-        eliminatedPlayers.Clear();
-
-        for (int i = 0; i < gridManager.GetTotalTiles(); i++)
-        {
-            GameObject tile = gridManager.GetTileByNumber(i);
-            if (tile != null)
-            {
-                TileData tileData = tile.GetComponent<TileData>();
-                bool isLightTile = (tileData.coordinates.x + tileData.coordinates.y) % 2 == 0;
-
-                Renderer renderer = tile.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    Material mat = new Material(renderer.sharedMaterial);
-                    mat.color = isLightTile ? Color.white : new Color(0.7f, 0.7f, 0.7f);
-                    renderer.material = mat;
-                }
-            }
-        }
-
+        // Réinitialiser le jeu
+        InitializePlayers();
         PlacePlayerBases();
         PlaceInitialLavaPieces();
         InitializeCardSystem();
