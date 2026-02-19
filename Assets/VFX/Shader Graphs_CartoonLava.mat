@@ -64,16 +64,16 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AngleChangeSpeed: 1
+    - _AngleChangeSpeed: 0.5
     - _AngleOffset: 1
-    - _CellDensity: 3.1
+    - _CellDensity: -5.8
     - _FlowSpeed: 0.08
     - _FlowStrength: 0.01
     - _HeightmapStrength: 3.61
     - _QueueControl: 0
     - _QueueOffset: 0
-    - _Thickness: 0.076
-    - _ThicknessFalloff: 0.0265
+    - _Thickness: 0.09
+    - _ThicknessFalloff: 0.03
     m_Colors:
     - _LavaColor: {r: 16, g: 2.7739286, b: 0, a: 1}
     - _LavaSpeed: {r: 0, g: 0.07, b: 0, a: 0}

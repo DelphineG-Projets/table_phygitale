@@ -24,17 +24,17 @@ public class WindIndicator : MonoBehaviour
 
         switch (wind)
         {
-            case WindDirection.South:
+            case WindDirection.North:
                 rotation = 0f;
-                windName = "SUD ↓";
+                windName = "NORD ↑";
                 break;
             case WindDirection.East:
                 rotation = 90f;
                 windName = "EST →";
                 break;
-            case WindDirection.North:
+            case WindDirection.South:
                 rotation = 180f;
-                windName = "NORD ↑";
+                windName = "SUD ↓";
                 break;
             case WindDirection.West:
                 rotation = 270f;
@@ -44,7 +44,7 @@ public class WindIndicator : MonoBehaviour
 
         if (windArrow != null)
         {
-            windArrow.transform.rotation = Quaternion.Euler(0, 0, rotation);
+            windArrow.transform.rotation = Quaternion.Euler(0, 0, -rotation);
         }
 
         if (windText != null)

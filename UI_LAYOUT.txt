@@ -1,0 +1,159 @@
+═══════════════════════════════════════════════════════════════════
+                    UI LAYOUT REFERENCE
+═══════════════════════════════════════════════════════════════════
+
+GAME SCREEN (During Gameplay):
+╔═════════════════════════════════════════════════════════════════╗
+║  ┌─────────────────┐                      ┌───────────────┐    ║
+║  │  JOUEUR 2       │                      │  Vent: OUEST  │    ║
+║  │ Jouez une carte │                      │      ←        │    ║
+║  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │                      └───────────────┘    ║
+║  └─────────────────┘                                            ║
+║          ↑                                         ↑             ║
+║   Turn Indicator                            Wind Indicator      ║
+║                                                                  ║
+║                                                                  ║
+║                    [GAME GRID 16x16]                            ║
+║                  🔥 = Lava pieces                               ║
+║                  🟥🟦🟩🟨 = Player bases                        ║
+║                  🚧 = Block pieces                              ║
+║                                                                  ║
+║                                                                  ║
+║  [1] Lave-Ligne 3   [2] Lave-2x2   [3] Eau-Ligne 3            ║
+║  [4] Eau-2x2        [5] Bloque-2    [6] Bloque-1v1             ║
+║  [7] Vent Nord ↑    [8] Vent Sud ↓  [9] Vent Est →            ║
+║  [0] Vent Ouest ←                                               ║
+║         ↑                                                        ║
+║  Card Reference (Toggle with TAB)                               ║
+╚═════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════
+
+VICTORY SCREEN (When game ends):
+╔═════════════════════════════════════════════════════════════════╗
+║                    [DARK OVERLAY - 80% black]                   ║
+║                                                                  ║
+║                                                                  ║
+║                     🏆 VICTOIRE 🏆                              ║
+║                    (Types out slowly)                           ║
+║                         ║                                        ║
+║                         ▼                                        ║
+║                      JOUEUR 3                                   ║
+║                  (Scales up from 0)                             ║
+║                  (Player color text)                            ║
+║                         ║                                        ║
+║              ══════════════════════                             ║
+║              (Color bar - green)                                ║
+║                                                                  ║
+║          ✨  ✨  ✨  ✨  ✨  ✨  ✨                             ║
+║        ✨  ✨ ✨  CONFETTI  ✨ ✨  ✨                          ║
+║          ✨  ✨  ✨  ✨  ✨  ✨  ✨                             ║
+║                   (Falling down)                                ║
+║                                                                  ║
+║                                                                  ║
+║              Nouvelle partie dans 5s...                         ║
+║                   (Countdown timer)                             ║
+║                                                                  ║
+╚═════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════
+
+COMPONENT HIERARCHY:
+
+Canvas
+├── TurnIndicatorPanel                    (Top-left)
+│   ├── CurrentPlayerText                 "JOUEUR 2"
+│   ├── PhaseText                         "Jouez une carte"
+│   └── PlayerColorIndicator (Image)      Color bar
+│
+├── WindIndicatorPanel                    (Top-right) [Existing]
+│   ├── WindText
+│   └── WindArrow
+│
+├── GameOverPanel                         (Fullscreen overlay)
+│   ├── CanvasGroup                       (For fade effects)
+│   ├── WinnerText                        "🏆 VICTOIRE 🏆"
+│   ├── SubtitleText                      "JOUEUR 3"
+│   ├── WinnerColorBar (Image)            Color indicator
+│   ├── CountdownText                     "Nouvelle partie..."
+│   └── ConfettiEffect                    Particle system
+│       └── [Generated confetti pieces]
+│
+└── PlayerHandPanel (Optional)            (Bottom)
+    └── CardContainer
+        ├── Card 1 UI
+        ├── Card 2 UI
+        └── ... (10 cards total)
+
+═══════════════════════════════════════════════════════════════════
+
+SCREEN POSITIONS:
+
+Turn Indicator:
+  Position: Top-Left
+  X: 150px from left
+  Y: 100px from top
+  Size: 280w × 180h
+
+Wind Indicator:
+  Position: Top-Right
+  X: 150px from right
+  Y: 100px from top
+  Size: [Your existing size]
+
+Game Over Panel:
+  Position: Fullscreen
+  Stretch all anchors
+  Offsets: 0, 0, 0, 0
+
+═══════════════════════════════════════════════════════════════════
+
+COLOR SCHEME:
+
+Player 1: Red      RGB(255, 76, 76)   / #FF4C4C
+Player 2: Blue     RGB(76, 76, 255)   / #4C4CFF
+Player 3: Green    RGB(76, 255, 76)   / #4CFF4C
+Player 4: Yellow   RGB(255, 255, 76)  / #FFFF4C
+
+UI Background:    RGB(30, 30, 30)    / #1E1E1E - Alpha 220
+Victory Overlay:  RGB(0, 0, 0)       / #000000 - Alpha 200
+Victory Gold:     RGB(255, 215, 0)   / #FFD700
+
+═══════════════════════════════════════════════════════════════════
+
+ANIMATION TIMELINE:
+
+Victory Screen (Total: 8 seconds):
+
+[0.0s] Panel activates, alpha = 0
+[0.0s - 0.5s] Fade in to alpha = 1
+[0.5s] Set color bar to winner color
+[0.5s - 1.0s] Type out "🏆 VICTOIRE 🏆" (0.05s per character)
+[1.0s - 2.0s] Scale up "JOUEUR X" from 0 to 1
+[2.0s] Activate confetti
+[2.0s - 8.0s] Pulse effect + confetti falling
+[0.0s - 8.0s] Countdown timer updating
+[8.0s] Reset game, hide panel
+
+Turn Indicator (Continuous):
+
+Every frame: Pulse effect (sin wave)
+  Scale = 1.0 + sin(time × 2) × 0.1
+  Smooth breathing effect
+
+On turn change: Update all text and colors immediately
+
+═══════════════════════════════════════════════════════════════════
+
+FONT RECOMMENDATIONS:
+
+Turn Indicator:
+  Player Number: 40pt, Bold, White
+  Phase Text: 20pt, Regular, Light Gray
+
+Victory Screen:
+  Victory Title: 80pt, Bold, Gold
+  Player Number: 100pt, Bold, Player Color
+  Countdown: 30pt, Regular, Gray
+
+═══════════════════════════════════════════════════════════════════

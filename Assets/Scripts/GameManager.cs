@@ -20,14 +20,14 @@ public class GameManager : MonoBehaviour
 
     [Header("Current Game State")]
     [SerializeField] private int currentPlayerIndex = 0;
-    private bool isGameOver = false;
+    public bool isGameOver = false;
 
     [Header("Card System")]
     [SerializeField] private DeckManager deckManager;
     private WindDirection currentWindDirection;
     private List<PlayerHand> playerHands = new List<PlayerHand>();
-    private bool hasPlacedMandatoryLava = false;
-    private bool hasPlayedCard = false;
+    public bool hasPlacedMandatoryLava = false;
+    public bool hasPlayedCard = false;
 
     [Header("Player Base Settings")]
     [SerializeField] private Material baseMaterial;
@@ -47,6 +47,7 @@ public class GameManager : MonoBehaviour
     private HashSet<int> lavaTiles = new HashSet<int>();
     private HashSet<int> blockTiles = new HashSet<int>();
     private HashSet<int> initialLavaTiles = new HashSet<int>();
+    private List<GameObject> playerBaseLabels = new List<GameObject>();
 
     void Start()
     {
@@ -67,7 +68,6 @@ public class GameManager : MonoBehaviour
             Player player = new Player(i + 1, GetPlayerColor(i));
             players.Add(player);
 
-            // Créer la main du joueur
             GameObject handObj = new GameObject($"Player{i + 1}_Hand");
             handObj.transform.SetParent(transform);
             PlayerHand hand = handObj.AddComponent<PlayerHand>();
@@ -77,6 +77,10 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"{numberOfPlayers} joueurs créés");
     }
+
+    // ==========================================
+    // PLACEMENT DES BASES - adapté carré/cercle
+    // ==========================================
 
     void PlacePlayerBases()
     {
@@ -96,7 +100,7 @@ public class GameManager : MonoBehaviour
     {
         int w = gridManager.gridWidth;
         int h = gridManager.gridHeight;
-        int margin = 1; // Distance du bord
+        int margin = 1;
 
         // Coins : bas-gauche, bas-droite, haut-droite, haut-gauche
         Vector2Int[] cornerPositions = new Vector2Int[]
@@ -133,20 +137,13 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Cherche la tile existante la plus éloignée du centre dans la direction donnée (angle en degrés).
-    /// Part du bord et se rapproche du centre jusqu'à trouver une tile valide.
-    /// </summary>
     Vector2Int FindBestBasePositionOnCircle(float angleDeg)
     {
         float angleRad = angleDeg * Mathf.Deg2Rad;
         float dirX = Mathf.Cos(angleRad);
         float dirY = Mathf.Sin(angleRad);
 
-        // Utiliser le vrai centre de la grille
         Vector2 center = gridManager.GridCenter;
-
-        // Partir de loin et se rapprocher jusqu'à trouver un tile existant
         float maxDist = Mathf.Max(gridManager.gridWidth, gridManager.gridHeight);
 
         for (float dist = maxDist; dist >= 2f; dist -= 0.5f)
@@ -156,7 +153,6 @@ public class GameManager : MonoBehaviour
 
             if (gridManager.HasTileAt(x, y))
             {
-                // Vérifier que c'est pas trop près du centre (au moins 3 tiles de distance)
                 float actualDist = Vector2.Distance(new Vector2(x, y), center);
                 if (actualDist >= 3f)
                 {
@@ -165,7 +161,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        return new Vector2Int(-1, -1); // Pas trouvé
+        return new Vector2Int(-1, -1);
     }
 
     void PlaceBaseAtPosition(Vector2Int pos, int playerIndex)
@@ -185,12 +181,41 @@ public class GameManager : MonoBehaviour
                 renderer.material = mat;
             }
 
+            // Créer le label flottant au-dessus de la base
+            CreatePlayerLabel(tile.transform.position, players[playerIndex].playerNumber, playerBaseColors[playerIndex]);
+
             Debug.Log($"Base du Joueur {players[playerIndex].playerNumber} placée en ({pos.x}, {pos.y})");
         }
         else
         {
             Debug.LogWarning($"Impossible de placer la base du joueur {playerIndex + 1} à ({pos.x}, {pos.y})");
         }
+    }
+
+    void CreatePlayerLabel(Vector3 tilePosition, int playerNumber, Color playerColor)
+    {
+        GameObject labelObj = new GameObject($"PlayerLabel_{playerNumber}");
+        labelObj.transform.position = tilePosition + Vector3.up * 0.8f;
+        labelObj.transform.SetParent(transform);
+
+        PlayerLabelBillboard billboard = labelObj.AddComponent<PlayerLabelBillboard>();
+
+        TextMesh textMesh = labelObj.AddComponent<TextMesh>();
+        textMesh.text = $"J{playerNumber}";
+        textMesh.fontSize = 48;
+        textMesh.characterSize = 0.12f;
+        textMesh.anchor = TextAnchor.MiddleCenter;
+        textMesh.alignment = TextAlignment.Center;
+        textMesh.fontStyle = FontStyle.Bold;
+        textMesh.color = Color.black;
+
+        MeshRenderer meshRend = labelObj.GetComponent<MeshRenderer>();
+        if (meshRend != null)
+        {
+            meshRend.sortingOrder = 10;
+        }
+
+        playerBaseLabels.Add(labelObj);
     }
 
     Color GetPlayerColor(int index)
@@ -206,9 +231,12 @@ public class GameManager : MonoBehaviour
         return colors[index % colors.Length];
     }
 
+    // ==========================================
+    // LAVE INITIALE - utilise le vrai centre
+    // ==========================================
+
     void PlaceInitialLavaPieces()
     {
-        // Utiliser le vrai centre de la grille
         Vector2 center = gridManager.GridCenter;
         int centerX = Mathf.FloorToInt(center.x);
         int centerY = Mathf.FloorToInt(center.y);
@@ -221,9 +249,9 @@ public class GameManager : MonoBehaviour
             new Vector2Int(centerX + 1, centerY + 1)
         };
 
+        int placed = 0;
         foreach (Vector2Int pos in centerPositions)
         {
-            // Vérifier que le tile existe (important pour le cercle)
             if (!gridManager.HasTileAt(pos.x, pos.y))
                 continue;
 
@@ -232,14 +260,17 @@ public class GameManager : MonoBehaviour
             {
                 TileData tileData = tile.GetComponent<TileData>();
                 PlaceLavaPiece(tileData.tileNumber, tile.transform.position);
-
-                // MARQUER COMME LAVE INITIALE PROTÉGÉE
                 initialLavaTiles.Add(tileData.tileNumber);
+                placed++;
             }
         }
 
-        Debug.Log($"Lava_pieces initiales placées au centre ({centerX},{centerY})");
+        Debug.Log($"{placed} lava_pieces initiales placées au centre ({centerX},{centerY}) (protégées)");
     }
+
+    // ==========================================
+    // PLACEMENT DES PIÈCES (avec animations)
+    // ==========================================
 
     void PlaceLavaPiece(int tileNumber, Vector3 tileWorldPosition)
     {
@@ -255,11 +286,17 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // DÉSACTIVER LE COLLIDER pour qu'il ne bloque pas les raycast
         Collider collider = lavaPiece.GetComponent<Collider>();
         if (collider != null)
         {
             collider.enabled = false;
+        }
+
+        // Animation de spawn
+        if (Application.isPlaying)
+        {
+            PieceAnimator animator = lavaPiece.AddComponent<PieceAnimator>();
+            animator.AnimateSpawn(tileWorldPosition + Vector3.up * 0.1f, PieceType.Lava);
         }
 
         occupiedTiles.Add(tileNumber, lavaPiece);
@@ -280,19 +317,21 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Ajouter le composant BlockPiece
         BlockPiece blockData = blockPiece.GetComponent<BlockPiece>();
         if (blockData == null)
             blockData = blockPiece.AddComponent<BlockPiece>();
 
         blockData.tileNumber = tileNumber;
 
-        // DÉSACTIVER LE COLLIDER
         Collider collider = blockPiece.GetComponent<Collider>();
         if (collider != null)
         {
             collider.enabled = false;
         }
+
+        // Animation de spawn
+        PieceAnimator animator = blockPiece.AddComponent<PieceAnimator>();
+        animator.AnimateSpawn(position + Vector3.up * 0.1f, PieceType.Block);
 
         occupiedTiles.Add(tileNumber, blockPiece);
         blockTiles.Add(tileNumber);
@@ -300,13 +339,16 @@ public class GameManager : MonoBehaviour
         Debug.Log($"🚧 Bloque placé sur tile {tileNumber}");
     }
 
+    // ==========================================
+    // NETTOYAGE - fonctionne en Editor ET Play
+    // ==========================================
+
     /// <summary>
-    /// Supprime toutes les pièces (lava, block, etc.) et reset les dictionnaires.
-    /// Appelé par GridManager.ClearGrid() et par ResetGame().
+    /// Supprime tous les enfants du GameManager (lava, block, labels, hands).
+    /// Fonctionne en Editor mode ET en Play mode.
     /// </summary>
     public void ClearAllPieces()
     {
-        // Détruire tous les enfants du GameManager (lava_pieces, block_pieces, PlayerHands, etc.)
         int childCount = transform.childCount;
         for (int i = childCount - 1; i >= 0; i--)
         {
@@ -320,7 +362,6 @@ public class GameManager : MonoBehaviour
 #endif
         }
 
-        // Reset tous les dictionnaires et sets
         occupiedTiles.Clear();
         lavaTiles.Clear();
         blockTiles.Clear();
@@ -329,6 +370,7 @@ public class GameManager : MonoBehaviour
         eliminatedPlayers.Clear();
         players.Clear();
         playerHands.Clear();
+        playerBaseLabels.Clear();
 
         Debug.Log($"🧹 Toutes les pièces du GameManager nettoyées ({childCount} objets supprimés)");
     }
@@ -337,6 +379,10 @@ public class GameManager : MonoBehaviour
     {
         PlaceInitialLavaPieces();
     }
+
+    // ==========================================
+    // GAME FLOW
+    // ==========================================
 
     void StartGame()
     {
@@ -357,6 +403,9 @@ public class GameManager : MonoBehaviour
     {
         currentWindDirection = newDirection;
         Debug.Log($"🌬️ Nouvelle direction du vent: {currentWindDirection}");
+
+        // Animation du changement de vent
+        WindChangeEffect.ShowWindChange(newDirection);
     }
 
     public PlayerHand GetCurrentPlayerHand()
@@ -521,6 +570,10 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // ==========================================
+    // EFFETS DES CARTES
+    // ==========================================
+
     bool ApplyCardEffect(Card card, List<int> targetTiles)
     {
         switch (card.type)
@@ -601,17 +654,25 @@ public class GameManager : MonoBehaviour
             {
                 if (occupiedTiles.ContainsKey(tileNumber))
                 {
-                    Destroy(occupiedTiles[tileNumber]);
+                    GameObject lavaToRemove = occupiedTiles[tileNumber];
+
+                    // Animation de suppression par l'eau
+                    WaterRemovalEffect.AnimateRemoval(lavaToRemove, () => { });
+
                     occupiedTiles.Remove(tileNumber);
                 }
 
                 lavaTiles.Remove(tileNumber);
                 Debug.Log($"💧 Lave enlevée du tile {tileNumber}");
                 waterPlaced++;
+
+                // Effet visuel splash
+                CreateWaterSplashEffect(tile.transform.position);
             }
             else if (!occupiedTiles.ContainsKey(tileNumber))
             {
                 Debug.Log($"💧 Eau placée sur tile vide {tileNumber} (pas d'effet)");
+                CreateWaterSplashEffect(tile.transform.position);
                 waterPlaced++;
             }
         }
@@ -658,6 +719,10 @@ public class GameManager : MonoBehaviour
         SetWindDirection(newDirection);
         return true;
     }
+
+    // ==========================================
+    // GESTION DES TOURS
+    // ==========================================
 
     public void EndTurn()
     {
@@ -723,7 +788,6 @@ public class GameManager : MonoBehaviour
                 if (renderer != null)
                 {
                     Material mat = new Material(renderer.sharedMaterial);
-
                     int playerIndex = player.playerNumber - 1;
 
                     if (player.playerNumber == GetCurrentPlayer().playerNumber)
@@ -820,6 +884,10 @@ public class GameManager : MonoBehaviour
         HighlightCurrentPlayerBase();
     }
 
+    // ==========================================
+    // QUERIES PUBLIQUES
+    // ==========================================
+
     public bool IsTileOccupied(int tileNumber)
     {
         return occupiedTiles.ContainsKey(tileNumber);
@@ -835,14 +903,34 @@ public class GameManager : MonoBehaviour
         return blockTiles.Contains(tileNumber);
     }
 
+    public bool HasPlacedMandatoryLava()
+    {
+        return hasPlacedMandatoryLava;
+    }
+
+    // ==========================================
+    // EFFETS VISUELS
+    // ==========================================
+
+    void CreateWaterSplashEffect(Vector3 position)
+    {
+        GameObject effectObj = new GameObject("WaterBombEffect");
+        effectObj.transform.position = position;
+        WaterBombEffect bomb = effectObj.AddComponent<WaterBombEffect>();
+        bomb.Launch(position);
+    }
+
+    // ==========================================
+    // RESET
+    // ==========================================
+
     public void ResetGame()
     {
         Debug.Log("🔄 RESET COMPLET DU JEU");
 
-        // Utiliser ClearAllPieces au lieu de dupliquer la logique
+        // Nettoyer toutes les pièces via la méthode unifiée
         ClearAllPieces();
 
-        // Reset des états de jeu
         hasPlacedMandatoryLava = false;
         hasPlayedCard = false;
         isGameOver = false;
@@ -856,6 +944,13 @@ public class GameManager : MonoBehaviour
         PlaceInitialLavaPieces();
         InitializeCardSystem();
         StartGame();
+
+        // Reset GameTester phase
+        GameTester tester = FindObjectOfType<GameTester>();
+        if (tester != null)
+        {
+            tester.ResetToMandatoryLavaPhase();
+        }
     }
 }
 
