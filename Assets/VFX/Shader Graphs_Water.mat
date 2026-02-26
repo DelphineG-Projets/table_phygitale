@@ -21,8 +21,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Shader Graphs_Water
-  m_Shader: {fileID: -6465566751694194690, guid: 88927b21822c1bb4b95345e5f6ae0cf6,
-    type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 88927b21822c1bb4b95345e5f6ae0cf6, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -56,15 +55,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Choppiness: 0.26
-    - _FlowSpeed: 0.02
-    - _FlowStrength: 0.0798
-    - _FoamDensity: 12
+    - _Choppiness: 0.104
+    - _FlowSpeed: 0.021
+    - _FlowStrength: 0.052
+    - _FoamDensity: 10.1
     - _FoamRotation: 0.16
     - _QueueControl: 0
     - _QueueOffset: 0
-    - _Thickness: 0
-    - _ThicknessFalloff: 0.029
+    - _Thickness: 0.02
+    - _ThicknessFalloff: 0.071
     m_Colors:
     - _DarkFoamColor: {r: 0, g: 0.39071617, b: 0.5660378, a: 1}
     - _DarkFoamSpeed: {r: 0.005, g: 0.005, b: 0, a: 0}
